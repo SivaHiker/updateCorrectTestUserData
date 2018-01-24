@@ -62,12 +62,11 @@ func workerPool() {
 				userMissdn := result.UserData.Msisdn
 				query := bson.M{"msisdn": userMissdn}
 				res := c.Find(query).One(&resuser)
-				fmt.Println(res)
 				if (resuser.Status == 1 || resuser.Status == 2) {
 					err := c1.Update(res, bson.M{"$set": bson.M{"active": false}})
 					fmt.Println(err)
+					counter++
 				}
-			counter++
 			fmt.Println("Total Active User records  --- >", counter)
 		  }
 		case <-done:
