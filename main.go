@@ -4,6 +4,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"fmt"
 	"gopkg.in/mgo.v2/bson"
+	"strings"
+	"encoding/json"
 )
 
 var jobs chan NewUserRecord
@@ -26,8 +28,7 @@ func main(){
 	}
 	defer session1.Close()
 
-	c1 = session1.DB("userlist").C("activeuserdata")
-
+	c1 = session1.DB("userlist").C("newuserdata")
 
 
 
@@ -39,7 +40,8 @@ func main(){
 
 	c = session.DB("userdb").C("users")
 
-	var result NewUserRecord
+	var result bson.M
+
 	for w := 1; w <= 500; w++ {
 		go workerPool()
 	}
@@ -47,8 +49,11 @@ func main(){
 	find := c.Find(bson.M{})
 	items := find.Iter()
 	for items.Next(&result) {
-		jobs <- result
-	}
+		var resultRecord NewUserRecord
+		jsonResp, _ := json.Marshal(result)
+		json.Unmarshal(jsonResp, &resultRecord)
+		jobs <- resultRecord
+		}
 	<-done
 }
 
@@ -58,35 +63,30 @@ func workerPool() {
 		select {
 		case result, ok := <-jobs:
 			if ok {
-				if (result.Status == 1 || result.Status == 2) {
-					continue
-				} else {
+				if result.Status == 0 && len(result.Msisdn) > 0 {
 					var userdata UserInfo
-					if(len(result.Msisdn) >0 && len(result.Devices) >0) {
-						userdata.UserData.Msisdn = result.Msisdn[0]
-						uid := result.Md.UID
-						token := result.Devices[0].Token
-						if (uid != "" && token != "") {
-							userdata.UserData.UID = uid
-							userdata.UserData.Token = token
-							userdata.Flag = false
-							userdata.Active = true
-							err := c1.Insert(userdata)
-							fmt.Println(err)
-							counter++
-						}
+					userdata.UserData.Msisdn = result.Msisdn[0]
+					rewardToken := result.RewardToken
+					if rewardToken != "" {
+						rewardsTokens := strings.Split(rewardToken, ":")
+						userdata.UserData.UID = rewardsTokens[0]
+						userdata.UserData.Token = rewardsTokens[1]
+						userdata.Flag = false
+						userdata.Active = true
+						err := c1.Insert(userdata)
+						fmt.Println(err)
+						counter++
 					}
 				}
-			if(counter == 30000000){
-				done<-true
+				if (counter == 30000000) {
+					done <- true
+				}
+				fmt.Println("Total Active User records  --- >", counter)
 			}
-			fmt.Println("Total Active User records  --- >", counter)
-		  }
 		case <-done:
-			done<-true
+			done <- true
 		}
 	}
-
 }
 
 type UserRecord struct {
