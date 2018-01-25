@@ -62,17 +62,19 @@ func workerPool() {
 					continue
 				} else {
 					var userdata UserInfo
-					userdata.UserData.Msisdn = result.Msisdn[0]
-					uid := result.Md.UID
-					token :=result.Devices[0].Token
-					if(uid != "" && token != "") {
-						userdata.UserData.UID = uid
-						userdata.UserData.Token = token
-						userdata.Flag = false
-						userdata.Active = true
-						err := c1.Insert(userdata)
-						fmt.Println(err)
-						counter++
+					if(len(result.Msisdn) >0 && len(result.Devices) >0) {
+						userdata.UserData.Msisdn = result.Msisdn[0]
+						uid := result.Md.UID
+						token := result.Devices[0].Token
+						if (uid != "" && token != "") {
+							userdata.UserData.UID = uid
+							userdata.UserData.Token = token
+							userdata.Flag = false
+							userdata.Active = true
+							err := c1.Insert(userdata)
+							fmt.Println(err)
+							counter++
+						}
 					}
 				}
 			if(counter == 30000000){
