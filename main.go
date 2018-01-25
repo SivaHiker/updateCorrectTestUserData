@@ -6,7 +6,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-var jobs chan UserInfo
+var jobs chan NewUserRecord
 var done chan bool
 var counter int64
 var activeCounter int64
@@ -16,7 +16,7 @@ var c *mgo.Collection
 
 
 func main(){
-	jobs = make(chan UserInfo, 10000)
+	jobs = make(chan NewUserRecord, 10000)
 	//done = make(chan bool, 1)
 
 
@@ -26,12 +26,12 @@ func main(){
 	}
 	defer session1.Close()
 
-	c1 = session1.DB("userlist").C("newuserdata")
+	c1 = session1.DB("userlist").C("activeuserdata")
 
 
 
 
-	session, err := mgo.Dial("10.15.0.77")
+	session, err := mgo.Dial("10.15.0.75")
 	if err != nil {
 		panic(err)
 	}
@@ -39,12 +39,12 @@ func main(){
 
 	c = session.DB("userdb").C("users")
 
-	var result UserInfo
+	var result NewUserRecord
 	for w := 1; w <= 500; w++ {
 		go workerPool()
 	}
 
-	find := c1.Find(bson.M{})
+	find := c.Find(bson.M{})
 	items := find.Iter()
 	for items.Next(&result) {
 		jobs <- result
@@ -58,15 +58,26 @@ func workerPool() {
 		select {
 		case result, ok := <-jobs:
 			if ok {
-				resuser := UserRecord{}
-				userMissdn := result.UserData.Msisdn
-				query := bson.M{"msisdn": userMissdn}
-				res := c.Find(query).One(&resuser)
-				if (resuser.Status == 1 || resuser.Status == 2) {
-					err := c1.Update(res, bson.M{"$set": bson.M{"active": false}})
-					fmt.Println(err)
-					counter++
+				if (result.Status == 1 || result.Status == 2) {
+					continue
+				} else {
+					var userdata UserInfo
+					userdata.UserData.Msisdn = result.Msisdn[0]
+					uid := result.Md.UID
+					token :=result.Devices[0].Token
+					if(uid != "" && token != "") {
+						userdata.UserData.UID = uid
+						userdata.UserData.Token = token
+						userdata.Flag = false
+						userdata.Active = true
+						err := c1.Insert(userdata)
+						fmt.Println(err)
+						counter++
+					}
 				}
+			if(counter == 30000000){
+				done<-true
+			}
 			fmt.Println("Total Active User records  --- >", counter)
 		  }
 		case <-done:
@@ -142,3 +153,61 @@ type UserData struct {
 	Platformtoken string `json:"platformtoken"`
 }
 
+
+type NewUserRecord struct {
+	ID      string   `json:"_id"`
+	Msisdn  []string `json:"msisdn"`
+	Country string   `json:"country"`
+	Devices []struct {
+		DevID            string `json:"dev_id"`
+		RegTime          int    `json:"reg_time"`
+		DevTokenUpdateTs int    `json:"dev_token_update_ts"`
+		DevToken         string `json:"dev_token"`
+		DevVersion       string `json:"dev_version"`
+		Msisdn           string `json:"msisdn"`
+		Resolution       string `json:"resolution"`
+		Token            string `json:"token"`
+		PhL              string `json:"ph_l"`
+		DevType          string `json:"dev_type"`
+		Pdm              string `json:"pdm"`
+		OsVersion        string `json:"os_version"`
+		DeviceKey        string `json:"device_key"`
+		LastActivityTime int    `json:"last_activity_time"`
+		AppVersion       string `json:"app_version"`
+		Os               string `json:"os"`
+		ApL              string `json:"ap_l"`
+	} `json:"devices"`
+	Rewards4 struct {
+		Tt    int `json:"tt"`
+		Total int `json:"total"`
+	} `json:"rewards4"`
+	RewardToken string `json:"reward_token"`
+	BackupToken string `json:"backup_token"`
+	Gender      string `json:"gender"`
+	Name        string `json:"name"`
+	Invitetoken string `json:"invitetoken"`
+	Md          struct {
+		UID string `json:"uid"`
+	} `json:"md"`
+	Locale      string `json:"locale"`
+	PaUID       string `json:"pa_uid"`
+	Addressbook struct {
+	} `json:"addressbook"`
+	InvitedJoined []interface{} `json:"invited_joined"`
+	Sus           int           `json:"sus"`
+	Setting       string        `json:"setting"`
+	Uls           int           `json:"uls"`
+	Lastseen      bool          `json:"lastseen"`
+	Avatar        int           `json:"avatar"`
+	Status        int           `json:"status"`
+	Dob           struct {
+		Year  int `json:"year"`
+		Day   int `json:"day"`
+		Month int `json:"month"`
+	} `json:"dob"`
+	Connect int    `json:"connect"`
+	Version int    `json:"version"`
+	S3      string `json:"s3"`
+	Icon    string `json:"icon"`
+	TnKey   string `json:"tn_key"`
+}
