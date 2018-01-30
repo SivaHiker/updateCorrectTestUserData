@@ -53,6 +53,7 @@ func main(){
 		jsonResp, _ := json.Marshal(result)
 		json.Unmarshal(jsonResp, &resultRecord)
 		jobs <- resultRecord
+		activeCounter++
 		}
 	<-done
 }
@@ -75,10 +76,11 @@ func workerPool() {
 							err := c1.Insert(userdata)
 							fmt.Println(err)
 							counter++
+							fmt.Println("Total Active User records  --- >", counter)
 						}
 					}
-					fmt.Println("Total Active User records  --- >", counter)
 				}
+				fmt.Println("Total Crawled User records  --- >", activeCounter)
 			}
 		case <-done:
 			done <- true
