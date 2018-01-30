@@ -65,23 +65,20 @@ func workerPool() {
 			if ok {
 				if result.Status == 0 && len(result.Msisdn) > 0 {
 					var userdata UserInfo
-					userdata.UserData.Msisdn = result.Msisdn[0]
-					rewardToken := result.RewardToken
-					if rewardToken != "" {
-						rewardsTokens := strings.Split(rewardToken, ":")
-						userdata.UserData.UID = rewardsTokens[0]
-						userdata.UserData.Token = rewardsTokens[1]
-						userdata.Flag = false
-						userdata.Active = true
-						err := c1.Insert(userdata)
-						fmt.Println(err)
-						counter++
+					if len(result.Devices) > 0 {
+						userdata.UserData.Msisdn = result.Msisdn[0]
+						if result.Devices[0].Token != "" && result.RewardToken != "" {
+							userdata.UserData.UID = strings.Split(result.RewardToken, ":")[0]
+							userdata.UserData.Token = result.Devices[0].Token
+							userdata.Flag = false
+							userdata.Active = true
+							err := c1.Insert(userdata)
+							fmt.Println(err)
+							counter++
+						}
 					}
+					fmt.Println("Total Active User records  --- >", counter)
 				}
-				if (counter == 30000000) {
-					done <- true
-				}
-				fmt.Println("Total Active User records  --- >", counter)
 			}
 		case <-done:
 			done <- true
